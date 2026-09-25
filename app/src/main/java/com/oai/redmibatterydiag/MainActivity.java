@@ -400,7 +400,7 @@ public class MainActivity extends Activity {
         row("Batarya sağlığı", healthText(health), "MB_06");
         row("Bağlı güç kaynağı", pluggedText(plugged), "");
         row("Batarya teknolojisi", tech != null ? tech : "N/A", "");
-        row("Kalan yük (charge counter)", valid(chargeCounterUah) ? fmt(chargeCounterUah / 1000.0, 0) + " mAh" : "Desteklenmiyor", "");
+        row("Kalan mAH Batarya Degeri", valid(chargeCounterUah) ? fmt(chargeCounterUah / 1000.0, 0) + " mAh" : "Desteklenmiyor", "");
         row("Anlık batarya gücü", !Double.isNaN(powerW) ? String.format(Locale.US, "%+.2f W", powerW) : "Desteklenmiyor", "");
         row("Şarj yorumu", chargingSummary(status, realTypeRaw, powerW, tempC), "");
 
