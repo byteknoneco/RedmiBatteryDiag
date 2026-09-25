@@ -2,6 +2,13 @@ plugins {
     id 'com.android.application'
 }
 
+def keystorePath = System.getenv('ANDROID_KEYSTORE_PATH')
+def keystorePassword = System.getenv('ANDROID_KEYSTORE_PASSWORD')
+def keyAliasValue = System.getenv('ANDROID_KEY_ALIAS')
+def keyPasswordValue = System.getenv('ANDROID_KEY_PASSWORD')
+def hasReleaseSigning = keystorePath != null && !keystorePath.isEmpty() && file(keystorePath).exists() &&
+        keystorePassword != null && keyAliasValue != null && keyPasswordValue != null
+
 android {
     namespace 'com.oai.redmibatterydiag'
     compileSdk 35
@@ -10,7 +17,46 @@ android {
         applicationId 'com.oai.redmibatterydiag'
         minSdk 23
         targetSdk 35
-        versionCode 2
-        versionName '1.1'
+        versionCode 3
+        versionName '1.2'
     }
+
+    buildFeatures {
+        aidl true
+    }
+
+    if (hasReleaseSigning) {
+        signingConfigs {
+            release {
+                storeFile file(keystorePath)
+                storePassword keystorePassword
+                keyAlias keyAliasValue
+                keyPassword keyPasswordValue
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+            shrinkResources false
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    def shizukuVersion = '13.1.5'
+    implementation "dev.rikka.shizuku:api:${shizukuVersion}"
+    implementation "dev.rikka.shizuku:provider:${shizukuVersion}"
 }
