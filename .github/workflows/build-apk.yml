@@ -6,13 +6,15 @@ on:
     branches:
       - main
       - master
+    tags:
+      - 'v*'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
-    name: Build debug APK
+    name: Build APK
     runs-on: ubuntu-24.04
 
     steps:
@@ -30,30 +32,61 @@ jobs:
         run: |
           SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
           SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
-
           echo "Android SDK: $SDK"
-          echo "SDK Manager: $SDKMANAGER"
-
           "$SDKMANAGER" --version
-
           yes | "$SDKMANAGER" --licenses > /dev/null || true
-
-          "$SDKMANAGER" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Build APK
-        run: gradle --no-daemon :app:assembleDebug
+      - name: Prepare persistent signing key
+        id: signing
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$STORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
+            KEYSTORE_PATH="$RUNNER_TEMP/redmi-battery-diag-release.jks"
+            echo "$KEYSTORE_B64" | base64 --decode > "$KEYSTORE_PATH"
+            echo "has_signing=true" >> "$GITHUB_OUTPUT"
+            echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+            echo "ANDROID_KEYSTORE_PASSWORD=$STORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+          else
+            echo "has_signing=false" >> "$GITHUB_OUTPUT"
+            echo "Signing secrets not configured; debug APK will be produced."
+          fi
 
-      - name: Upload APK
+      - name: Build APK
+        shell: bash
+        run: |
+          mkdir -p dist
+          if [ "${{ steps.signing.outputs.has_signing }}" = "true" ]; then
+            gradle --no-daemon :app:assembleRelease
+            cp app/build/outputs/apk/release/app-release.apk dist/RedmiBatteryDiag-v1.2.apk
+          else
+            gradle --no-daemon :app:assembleDebug
+            cp app/build/outputs/apk/debug/app-debug.apk dist/RedmiBatteryDiag-v1.2-debug.apk
+          fi
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RedmiBatteryDiag-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: RedmiBatteryDiag-v1.2-APK
+          path: dist/*.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish GitHub Release for version tags
+        if: startsWith(github.ref, 'refs/tags/v') && steps.signing.outputs.has_signing == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/RedmiBatteryDiag-v1.2.apk
+          generate_release_notes: true
