@@ -1,57 +1,66 @@
-# Redmi Battery Diagnostic
+# Redmi BatteryDiag v1.2
 
-A simple read-only Android app for showing battery and charging data on Xiaomi/Redmi devices with clear labels instead of MB/MU style codes.
+## Yeni özellikler
 
-## Data shown
+- Shizuku gelişmiş erişim: Normal APK'nin okuyamadığı Xiaomi / MediaTek `/sys/class/power_supply` alanlarını ADB-shell kimliğiyle read-only okumayı dener.
+- Şarj Testi: 5 saniyede bir SOC, V, A, W, sıcaklık, protokol, USB alanları ve charge counter kaydı.
+- Test özeti: başlangıç/bitiş SOC, süre, max/ortalama güç, max/ortalama sıcaklık, 40 C üstü süre ve mümkünse charge-counter farkı.
+- 5 grafik: SOC, gerilim, akım, güç ve sıcaklık.
+- CSV dışa aktarma.
+- Kalıcı APK imzası için GitHub Actions desteği.
+- `v*` tag'i ile signed build varsa GitHub Release oluşturma desteği.
 
-- Battery level (SOC)
-- Charging state
-- Battery voltage
-- Instant and average battery current
-- Battery temperature
-- Android battery health state
-- Connected power source and battery technology
-- Charge counter
-- Estimated instantaneous battery power
-- If accessible through Xiaomi/HyperOS kernel sysfs: charging protocol, USB input voltage, USB current limit, Type-C CC orientation, Type-C mode, thermal charge control, charger temperature, cycle count, charge_full, charge_full_design and calculated SOH
+## Repo'da değiştirilecek dosyalar
 
-## Privacy and safety
+Mevcut dosyaları bunlarla değiştir:
 
-- No Internet permission
-- No storage permission
-- No root required
-- Read-only: the app does not write battery, charger, radio or system settings
-- Xiaomi/HyperOS may block some sysfs values. Those fields are shown as "Erisim yok" in the app.
+- `build.gradle`
+- `settings.gradle`
+- `gradle.properties`
+- `.github/workflows/build-apk.yml`
+- `app/build.gradle`
+- `app/src/main/AndroidManifest.xml`
+- `app/src/main/java/com/oai/redmibatterydiag/MainActivity.java`
+- `app/src/main/res/drawable/ic_battery_diag.xml`
 
-## Xiaomi 6485 button
+Yeni oluşturulacak dosyalar:
 
-The button copies `*#*#6485#*#*` to the clipboard and opens the phone dialer. Android/Xiaomi security may prevent a third-party app from directly executing a secret code. If so, paste or type the code manually in the dialer.
+- `app/src/main/java/com/oai/redmibatterydiag/BatteryShellService.java`
+- `app/src/main/aidl/com/oai/redmibatterydiag/IBatteryShellService.aidl`
 
-## Build APK online with GitHub Actions
+## Shizuku kullanımı
 
-No Android Studio or local compiler is required.
+1. Shizuku'yu telefona kur.
+2. Android 11+ cihazda Shizuku içinden Wireless Debugging ile Shizuku servisini başlat.
+3. Redmi BatteryDiag'i aç.
+4. `Shizuku izni ver` düğmesine bas ve izni onayla.
+5. Durum `Bağlı - Gelişmiş sysfs erişimi - ADB shell` olduğunda uygulama normal erişimde başarısız olan MU/sysfs alanlarını shell kimliğiyle tekrar dener.
 
-1. Create a new empty GitHub repository.
-2. Extract this ZIP on your PC or phone.
-3. Upload the CONTENTS of this project folder to the root of the GitHub repository. Make sure `.github/workflows/build-apk.yml` is also uploaded.
-4. Commit the uploaded files to the `main` branch.
-5. Open the repository's `Actions` tab.
-6. Open `Build Android APK`.
-7. The first upload to `main` starts a build automatically. You can also choose `Run workflow` manually.
-8. Wait for the green check mark.
-9. Open the completed run and download the `RedmiBatteryDiag-APK` artifact.
-10. Extract the downloaded artifact ZIP. Inside it is `RedmiBatteryDiag.apk`.
-11. Transfer that APK to the Redmi phone and install it. Android may ask you to allow installation from the browser/file-manager source you used.
+Not: Shizuku root değildir. Xiaomi/HyperOS SELinux bir alanı ADB shell için de kapatmışsa o alan yine okunamayabilir.
 
-## Technical build settings
+## Kalıcı imza - bir kere yapılacak
 
-- Android Gradle Plugin: 8.7.3
-- Gradle: 8.9 in GitHub Actions
-- Java: 17
-- compileSdk: 35
-- targetSdk: 35
-- minSdk: 23
+`RedmiBatteryDiag-v1.2-signing-private.zip` dosyasındaki `GITHUB_SECRETS.txt` içindeki dört değeri GitHub'da:
 
-## Important limitation
+`Repository -> Settings -> Secrets and variables -> Actions -> New repository secret`
 
-The Xiaomi 6485 FactoryKit screen is a privileged Xiaomi component. A normal third-party APK cannot reliably read every value exposed by FactoryKit on every HyperOS/MIUI build. This app reads Android public battery APIs first, then attempts read-only access to commonly exposed `/sys/class/power_supply/...` files. Values blocked by SELinux or vendor permissions will remain unavailable without elevated privileges.
+altına tek tek ekle:
+
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+`.jks` dosyasını ve `GITHUB_SECRETS.txt` dosyasını GitHub reposuna ASLA yükleme. Bunlar sadece yedek içindir.
+
+İlk signed v1.2, daha önce debug key ile kurulmuş v1.1'in üstüne kurulamaz. v1.1'i bir kez kaldırıp signed v1.2'yi kur. Bundan sonraki aynı anahtarla imzalı sürümler normal güncelleme gibi üstüne kurulabilir.
+
+## Build
+
+Commit'ten sonra Actions otomatik çalışır. Signing secrets ayarlıysa artifact:
+
+`RedmiBatteryDiag-v1.2.apk`
+
+olarak signed release APK üretir. Secrets ayarlı değilse debug APK üretir.
+
+Bir GitHub Release oluşturmak istersen repo'da `v1.2` tag'i oluştur. Workflow signed APK'yı release'e ekler.
